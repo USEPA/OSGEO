@@ -1,0 +1,426 @@
+---
+title: "GeoParquet: Vector Data Goes Cloud-Native"
+subtitle: "From bbox covering to native Parquet geometry types — where things stand in 2026"
+author: "Marc Weber"
+date: today
+format:
+  revealjs:
+    theme: [simple]
+    slide-number: true
+    chalkboard: true
+    code-line-numbers: true
+    code-copy: true
+    incremental: false
+    footer: "GeoParquet & the cloud-native geo stack"
+    logo: ""
+execute:
+  echo: true
+  eval: true
+  freeze: auto
+jupyter: python3
+---
+
+## Why this talk
+
+A few things converged in the last year that make this a good moment to
+revisit GeoParquet:
+
+- Apache **Parquet itself** shipped native `GEOMETRY` / `GEOGRAPHY` logical
+  types (Parquet 2.11, March 2025) — geo is no longer bolted on
+- **GeoParquet 2.0.0-rc.1** re-aligns the spec around those native types
+- Real, huge, public datasets (Overture Maps) now ship *only* as GeoParquet
+- A new generation of tools (`geoparquet-io`, GeoLibre, DuckDB-WASM) treat
+  GeoParquet as a first-class citizen, not an afterthought
+
+We'll write some, inspect some, query some over HTTP, and load some into a
+map — all in this one notebook/deck.
+
+## Agenda
+
+1. Cloud-optimized, for vectors — the COG analogy
+2. GeoParquet 101, hands-on (write it, inspect it)
+3. What changed in 2026: Parquet's native geo types → GeoParquet 2.0
+4. The ecosystem check: what actually supports what, today
+5. Live query: Overture Maps GeoParquet straight from S3
+6. Application: **GeoLibre**, a cloud-native GIS that speaks GeoParquet
+7. Cheat sheet + resources
+
+# 1 · Cloud-optimized, for vectors {background-color="#1b3a4b"}
+
+## The COG playbook, applied to vectors
+
+Cloud-Optimized GeoTIFF made rasters *queryable in place*: internal tiling +
+overviews + HTTP range requests meant a client could read a small window of
+a huge file without downloading it whole.
+
+GeoParquet applies the same idea to vector/tabular geo data, using features
+that are native to Parquet:
+
+::: {.incremental}
+- **Columnar layout** — read only the columns (attributes) you need
+- **Row groups** — each holds min/max statistics, so a client can skip whole
+  chunks that can't match a filter (predicate pushdown)
+- **bbox column + `covering` metadata** — an explicit per-row bounding box
+  column lets engines prune on *space*, not just attribute values, using
+  the same statistics mechanism
+- **HTTP range requests** — cloud object stores (S3, GCS, Azure) serve just
+  the byte ranges a query engine asks for
+:::
+
+Net effect: `SELECT ... WHERE bbox.xmin BETWEEN a AND b` against a
+multi-terabyte file on S3 can be fast, with no local copy.
+
+## GeoParquet is a thin, well-behaved layer on Parquet
+
+It is **not** a new file format. It's:
+
+- an agreement on how to store geometries in a Parquet column (WKB, or
+  native GeoArrow-encoded types), and
+- a small JSON blob in the Parquet file's key/value metadata (key `"geo"`)
+  describing the CRS, geometry types, bbox, and (as of 1.1) the `covering`
+  column for predicate pushdown
+
+Because it *is* Parquet, every Parquet-speaking tool already sees the data —
+DuckDB, Spark, Arrow, pandas, Snowflake, BigQuery. Geo-awareness is opt-in
+on top.
+
+# 2 · GeoParquet 101, hands-on {background-color="#1b3a4b"}
+
+## Write a tiny GeoParquet file
+
+A handful of Pacific Northwest cities, written with GeoPandas 1.x — note the
+`write_covering_bbox` flag, which is the 1.1 feature that adds a per-row
+bbox struct column for cheap spatial pruning.
+
+```{python}
+#| label: write-geoparquet
+import geopandas as gpd
+from shapely.geometry import Point
+
+data = {
+    "city": ["Corvallis", "Portland", "Bend", "Eugene", "Astoria"],
+    "state": ["OR"] * 5,
+    "population": [59_000, 652_000, 100_000, 176_000, 10_000],
+    "geometry": [
+        Point(-123.2620, 44.5646),
+        Point(-122.6765, 45.5231),
+        Point(-121.3153, 44.0582),
+        Point(-123.0868, 44.0521),
+        Point(-123.8313, 46.1879),
+    ],
+}
+gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
+
+gdf.to_parquet(
+    "pnw_cities.parquet",
+    write_covering_bbox=True,   # GeoParquet 1.1: per-row bbox struct column
+    schema_version="1.1.0",     # be explicit; default is still "1.0.0"
+)
+gdf
+```
+
+## What actually landed in the file
+
+Parquet's *file* metadata carries a `"geo"` key with the GeoParquet
+metadata JSON. This is what a reader checks before it touches a single row.
+
+```{python}
+#| label: inspect-metadata
+import json
+import pyarrow.parquet as pq
+
+meta = pq.read_metadata("pnw_cities.parquet")
+kv = dict(meta.metadata or {})
+geo = json.loads(kv[b"geo"])
+
+print("schema version :", geo["version"])
+print("geometry types :", geo["columns"]["geometry"]["geometry_types"])
+print("column bbox    :", geo["columns"]["geometry"]["bbox"])
+print("covering       :", geo["columns"]["geometry"].get("covering"))
+```
+
+```{python}
+#| label: inspect-schema
+pq.read_schema("pnw_cities.parquet")
+```
+
+Notice the extra `bbox` struct column (`xmin`/`ymin`/`xmax`/`ymax`) sitting
+right next to `geometry` — that's what a query engine's row-group and
+page-index statistics latch onto for spatial pruning, with zero geometry
+parsing required.
+
+# 3 · What changed in 2026 {background-color="#1b3a4b"}
+
+## Recap: GeoParquet 1.0 → 1.1
+
+GeoParquet 1.1 (the version most tools write today) added, on top of 1.0:
+
+- **`covering` metadata** pointing at a bbox struct column, so engines get
+  cheap spatial predicate pushdown without a spatial index
+- Stricter **geometry-type declarations** — every type actually present
+  must be listed (no shortcuts like listing only `MultiPolygon` when plain
+  `Polygon` rows exist)
+- Optional **native GeoArrow encodings** (point/linestring/polygon and
+  their multi- variants) as an alternative to WKB, for readers that can
+  exploit Arrow-native columnar geometry
+
+## The bigger shift: Parquet gets geometry *natively*
+
+In March 2025, **Apache Parquet 2.11** added `GEOMETRY` and `GEOGRAPHY` as
+first-class **logical types** — not a convention layered on top, but part
+of the format spec itself:
+
+- Values are stored as **WKB** in a `BYTE_ARRAY` column
+- `GEOMETRY` = planar (projected CRS, engineering/local data);
+  `GEOGRAPHY` = spherical/ellipsoidal (lon/lat, globe-scale, great-circle
+  distance semantics)
+- Parquet **row groups can now carry native min/max bbox statistics** for
+  the geometry column itself — the thing GeoParquet's `covering` column
+  was invented to approximate
+- CRS metadata (EPSG code or PROJJSON) travels on the logical type
+- Early support already landed: Parquet Java, Arrow C++/Rust, DuckDB,
+  Hyparquet (JS) — and **GDAL/OGR 3.12** reads and writes it
+
+Chris Holmes (GeoParquet co-creator): *"2026 will be the year where we
+really start to see major datasets use Parquet `GEOMETRY` and `GEOGRAPHY`
+types."*
+
+## GeoParquet 2.0.0-rc.1: converging, not competing
+
+GeoParquet 2.0 doesn't disappear — it re-anchors itself on Parquet's native
+types instead of wrapping WKB in an ordinary binary column:
+
+- Geometry columns **must** use the Parquet `GEOMETRY`/`GEOGRAPHY` logical
+  type on a `BYTE_ARRAY` field (WKB) — GeoArrow-native encodings are
+  dropped from 2.0
+- **CRS now lives on the logical type's `crs` property** — that's the
+  source of truth; the GeoParquet `"geo"` JSON just restates it for
+  readers that don't yet look at the native property
+- Geometry columns **must sit at the schema root** (no nesting)
+- A writer without PROJJSON support can emit native types with an
+  authority code (e.g. `EPSG:4326`) and skip GeoParquet metadata entirely
+  — a deliberately low bar for interoperability
+
+One practitioner's framing (rednegra.net) is worth keeping in mind: *a
+Parquet file with a `GEOMETRY` column is not automatically a GeoParquet
+file* — GeoParquet still defines things Parquet doesn't: a **primary**
+geometry column, mandatory per-column geometry-type lists, polygon winding
+metadata, CRS epochs, and (for now) the `covering` convention.
+
+## Where the *tools* actually are, today
+
+Verified against what's installed in this environment right now:
+
+```{python}
+#| label: ecosystem-check
+import geopandas, pyarrow
+from geopandas.io.arrow import SUPPORTED_VERSIONS
+
+print("geopandas   :", geopandas.__version__)
+print("pyarrow     :", pyarrow.__version__)
+print("schema_version options geopandas can write:", SUPPORTED_VERSIONS)
+```
+
+So: GeoPandas can *write* GeoParquet 1.1 metadata (bbox covering) today,
+but doesn't yet emit Parquet's native `GEOMETRY`/`GEOGRAPHY` logical type or
+GeoParquet 2.0 — that piece of the transition is still landing across the
+ecosystem. GDAL/OGR (≥3.12) is ahead of the Python geo stack here. Good
+reminder to pin `schema_version` explicitly rather than assume "latest."
+
+## `geoparquet-io`: an opinionated toolbelt
+
+A newer (2026, beta) CLI + Python library purpose-built for this
+transition — convert, validate, and *optimize* GeoParquet:
+
+- One-command optimization: bbox column + **Hilbert-curve sort** + ZSTD +
+  smart row-group sizing — reported 10–100× query speedups over naive
+  writes
+- Converts Shapefile / GeoJSON / GeoPackage → optimized GeoParquet
+- Reads/writes S3, GCS, Azure directly, with credential auto-discovery
+- Validates spec compliance and can repair non-compliant files in place
+- Partitioning strategies for big datasets: H3, S2, quadkey, admin
+  boundaries
+
+```bash
+# illustrative — geoparquet-io is in beta
+pip install geoparquet-io
+gpio convert cities.shp cities.parquet --optimize
+gpio validate cities.parquet
+```
+
+# 4 · Live: Overture Maps over HTTP {background-color="#1b3a4b"}
+
+## The dataset: Overture Maps, GeoParquet-only
+
+[Overture Maps](https://overturemaps.org) (Linux Foundation: Amazon,
+Meta, Microsoft, TomTom, and others) publishes global places, buildings,
+transportation, administrative boundaries — **as GeoParquet on public S3**,
+hive-partitioned by theme/type, no auth required:
+
+```
+s3://overturemaps-us-west-2/release/{release}/theme={theme}/type={type}/*
+```
+
+This is the dataset that makes "cloud-optimized" concrete: there is no
+"download the file first" step. A query engine reads only the row groups
+whose bbox statistics overlap your filter.
+
+## Query it in place with DuckDB
+
+```{python}
+#| label: duckdb-setup
+#| eval: false
+# Requires internet access — DuckDB downloads the spatial/httpfs
+# extensions on first use, then reads directly from Overture's S3 bucket.
+import duckdb
+
+con = duckdb.connect()
+con.execute("INSTALL spatial; LOAD spatial;")
+con.execute("INSTALL httpfs; LOAD httpfs;")
+con.execute("SET s3_region='us-west-2';")
+
+RELEASE = "2026-08-19.0"  # check https://docs.overturemaps.org for the current release
+AOI = dict(xmin=-123.35, xmax=-123.20, ymin=44.53, ymax=44.60)  # Corvallis, OR
+```
+
+## Places, filtered by bbox — pushed down, not post-filtered
+
+```{python}
+#| label: duckdb-places
+#| eval: false
+places = con.execute(f"""
+    SELECT id, names.primary AS name, categories.primary AS category, geometry
+    FROM read_parquet(
+        's3://overturemaps-us-west-2/release/{RELEASE}/theme=places/type=place/*',
+        filename = true, hive_partitioning = 1
+    )
+    WHERE bbox.xmin BETWEEN {AOI['xmin']} AND {AOI['xmax']}
+      AND bbox.ymin BETWEEN {AOI['ymin']} AND {AOI['ymax']}
+    LIMIT 25
+""").df()
+places
+```
+
+The `bbox.xmin` / `bbox.ymin` predicate is exactly the GeoParquet 1.1
+`covering` column at work: DuckDB skips entire row groups using their
+statistics before it ever decodes a WKB geometry.
+
+## Buildings, same AOI — and export straight to a normal GIS format
+
+```{python}
+#| label: duckdb-buildings
+#| eval: false
+con.execute(f"""
+    COPY (
+        SELECT id, names.primary AS name, height, geometry
+        FROM read_parquet(
+            's3://overturemaps-us-west-2/release/{RELEASE}/theme=buildings/type=building/*',
+            filename = true, hive_partitioning = 1
+        )
+        WHERE bbox.xmin BETWEEN {AOI['xmin']} AND {AOI['xmax']}
+          AND bbox.ymin BETWEEN {AOI['ymin']} AND {AOI['ymax']}
+    ) TO 'corvallis_buildings.geojson' WITH (FORMAT GDAL, DRIVER 'GeoJSON')
+""")
+```
+
+No shapefile-era download-the-whole-country step. One SQL query, scoped by
+a bounding box, against a live cloud dataset measured in hundreds of
+gigabytes.
+
+# 5 · Application: GeoLibre {background-color="#1b3a4b"}
+
+## A cloud-native GIS that speaks GeoParquet natively
+
+[**GeoLibre**](https://geolibre.app) ([opengeos/GeoLibre](https://github.com/opengeos/GeoLibre))
+is a lightweight, open-source (MIT) GIS that runs — from one codebase — in
+the browser, on desktop, on mobile, and **inside Jupyter and Quarto/R**:
+
+- **1,000+ geoprocessing tools**, running client-side via WebAssembly — no
+  server, no installation for the browser build
+- Built on **MapLibre GL JS**, **DuckDB-WASM (spatial)**, and **deck.gl**
+  for rendering and SQL, **Tauri v2** for the native desktop/mobile shell
+- First-class conversion to and from the cloud-native trio: **GeoParquet,
+  PMTiles, and COG**
+- Ships as a **Python package** (Jupyter, `leafmap`-style API) and an **R
+  package** (`geolibre-r`, for RStudio, Quarto, Shiny)
+
+For a Quarto blog specifically: the R package embeds GeoLibre as an
+interactive HTML widget directly in a rendered `.qmd`.
+
+## Loading GeoParquet into GeoLibre, from Python
+
+```{python}
+#| label: geolibre-map
+from geolibre import Map
+
+m = Map(center=(-123.0, 44.5), zoom=7, basemap="dark", height="500px")
+
+# local file written earlier in this deck
+m.add_geoparquet(
+    "pnw_cities.parquet",
+    name="PNW Cities",
+    paint={"circle-color": "#f2a900", "circle-radius": 6},
+)
+
+m
+```
+
+## Same API, straight from cloud storage
+
+`add_geoparquet()` takes a URL just as happily as a local path — so a
+GeoLibre map and the DuckDB query above are really two views onto the same
+underlying cloud-optimized file:
+
+```{python}
+#| label: geolibre-remote
+#| eval: false
+m2 = Map(center=(-123.26, 44.56), zoom=12, basemap="light")
+m2.add_geoparquet(
+    f"s3://overturemaps-us-west-2/release/{RELEASE}/theme=buildings/type=building/*",
+    name="Overture Buildings (Corvallis)",
+    paint={"fill-color": "#4c78a8", "fill-opacity": 0.6},
+)
+m2
+```
+
+In the R/Quarto world, the equivalent is `geolibre-r`'s widget — same
+underlying MapLibre + DuckDB-WASM engine, so the same GeoParquet URL drops
+straight into an RStudio/Quarto session too.
+
+# 6 · Cheat sheet {background-color="#1b3a4b"}
+
+## Tool → what it's good for, right now
+
+| Tool | Reads native Parquet `GEOMETRY`? | Writes GeoParquet | Notes |
+|---|---|---|---|
+| GDAL / OGR ≥ 3.12 | ✅ | ✅ (1.x + native types) | furthest along |
+| DuckDB (`spatial` ext.) | ✅ | ✅ | great for ad-hoc cloud queries |
+| GeoPandas 1.1.x | ❌ (writes WKB only) | ✅ up to 1.1.0 | `schema_version=` to pin |
+| Apache Sedona | ✅ (Spark-scale) | ✅ | best for very large batch jobs |
+| `geoparquet-io` | via GDAL/DuckDB | ✅ (optimized) | beta; validate + optimize |
+| GeoLibre | via DuckDB-WASM | — (viewer/editor) | browser/desktop/Jupyter/Quarto |
+
+## Wrap-up
+
+- GeoParquet turned "download the whole shapefile" into "query the bytes
+  you need" — the same trick COG played for rasters
+- 2026 is the year that trick moves **into Parquet itself**: native
+  `GEOMETRY`/`GEOGRAPHY` types, and GeoParquet 2.0 rebuilt on top of them
+- The Python geo stack (GeoPandas) is a step behind GDAL/DuckDB on native
+  types today — worth pinning `schema_version` explicitly until that
+  settles
+- Overture Maps is the dataset to practice on: real scale, no auth, no
+  download required
+- GeoLibre is a nice end-to-end demo of "cloud-native geo" as a *product*,
+  not just a file format — same GeoParquet URL, browser or Jupyter or
+  Quarto
+
+## Resources
+
+- GeoParquet spec — <https://geoparquet.org> · [1.1.0](https://geoparquet.org/releases/v1.1.0/) · [2.0.0-rc.1](https://geoparquet.org/releases/v2.0.0-rc.1/)
+- Apache Parquet native geo types — <https://parquet.apache.org/blog/2026/02/13/native-geospatial-types-in-apache-parquet/>
+- Chris Holmes, *"GeoParquet & Parquet geospatial types: A time of transition"* — <https://medium.com/radiant-earth-insights/geoparquet-parquet-geospatial-types-a-time-of-transition-a42e391cdab2>
+- *"Parquet with GEOMETRY type is not GeoParquet"* — <https://rednegra.net/blog/20250925-parquet-with-geometry-type-is-not-geoparquet/>
+- `geoparquet-io` — <https://cloudnativegeo.org/blog/2026/03/introducing-geoparquet-io/> · <https://geoparquet.io/CHANGELOG/>
+- Overture Maps + DuckDB — <https://docs.overturemaps.org/getting-data/duckdb/>
+- GeoLibre — <https://geolibre.app> · <https://github.com/opengeos/GeoLibre> · R package: <https://r.geolibre.app>
