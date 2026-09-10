@@ -7462,72 +7462,13 @@ main {
 <main>
 <div class="reveal">
 <div class="slides"><section><section>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e0f58092">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="GeoParquet:-Vector-Data-Goes-Cloud-Native">GeoParquet: Vector Data Goes Cloud-Native<a class="anchor-link" href="#GeoParquet:-Vector-Data-Goes-Cloud-Native">¶</a></h1><h3 id="From-bbox-covering-to-native-Parquet-geometry-types-%E2%80%94-where-things-stand-in-2026">From bbox covering to native Parquet geometry types — where things stand in 2026<a class="anchor-link" href="#From-bbox-covering-to-native-Parquet-geometry-types-%E2%80%94-where-things-stand-in-2026">¶</a></h3><p><em>Marc Weber</em></p>
-</div>
-</div>
-</div>
-</div></section></section><section><section>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=bb9cd382">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Why-this-talk">Why this talk<a class="anchor-link" href="#Why-this-talk">¶</a></h2><p>A few things converged in the last year:</p>
-<ul>
-<li>Apache <strong>Parquet</strong> shipped native <code>GEOMETRY</code> / <code>GEOGRAPHY</code> logical types (Parquet 2.11, March 2025) — geo is no longer bolted on</li>
-<li><strong>GeoParquet 2.0.0-rc.1</strong> re-aligns the spec around those native types</li>
-<li>Real, huge, public datasets (Overture Maps) now ship <em>only</em> as GeoParquet</li>
-<li>A new generation of tools (<code>geoparquet-io</code>, GeoLibre, DuckDB-WASM) treat GeoParquet as a first-class citizen</li>
-</ul>
-<p>We'll write some, inspect some, query some over HTTP, and load some into a map.</p>
-</div>
-</div>
-</div>
-</div></section></section><section><section>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=373e4cfa">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Agenda">Agenda<a class="anchor-link" href="#Agenda">¶</a></h2><ol>
-<li>Cloud-optimized, for vectors — the COG analogy</li>
-<li>GeoParquet 101, hands-on (write it, inspect it)</li>
-<li>What changed in 2026: Parquet's native geo types → GeoParquet 2.0</li>
-<li>The ecosystem check: what actually supports what, today</li>
-<li>Live query: Overture Maps GeoParquet straight from S3</li>
-<li>Application: <strong>GeoLibre</strong>, a cloud-native GIS that speaks GeoParquet</li>
-<li>Cheat sheet + resources</li>
-</ol>
-</div>
-</div>
-</div>
-</div></section></section><section><section>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=6c9c98ed">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="1-%C2%B7-Cloud-optimized,-for-vectors">1 · Cloud-optimized, for vectors<a class="anchor-link" href="#1-%C2%B7-Cloud-optimized,-for-vectors">¶</a></h1>
-</div>
-</div>
-</div>
-</div></section></section><section><section>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e7a45f45">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="The-COG-playbook,-applied-to-vectors">The COG playbook, applied to vectors<a class="anchor-link" href="#The-COG-playbook,-applied-to-vectors">¶</a></h2><p>Cloud-Optimized GeoTIFF made rasters <em>queryable in place</em>: internal tiling + overviews + HTTP range requests meant a client could read a small window of a huge file without downloading it whole.</p>
+<h2 id="Cloud-optimized,-for-vectors">Cloud-optimized, for vectors<a class="anchor-link" href="#Cloud-optimized,-for-vectors">¶</a></h2><p>Cloud-Optimized GeoTIFF made rasters <em>queryable in place</em>: internal tiling + overviews + HTTP range requests meant a client could read a small window of a huge file without downloading it whole.</p>
 <p>GeoParquet applies the same idea to vector/tabular geo data:</p>
 </div>
 </div>
@@ -7591,7 +7532,7 @@ main {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [2]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [8]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
@@ -7610,7 +7551,6 @@ main {
     <span class="p">],</span>
 <span class="p">}</span>
 <span class="n">gdf</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="s2">"EPSG:4326"</span><span class="p">)</span>
-
 <span class="n">gdf</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
     <span class="s2">"pnw_cities.parquet"</span><span class="p">,</span>
     <span class="n">write_covering_bbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>   <span class="c1"># GeoParquet 1.1: per-row bbox struct column</span>
@@ -7627,7 +7567,7 @@ main {
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[2]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[8]:</div>
 <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
 <div>
 <style scoped="">
@@ -7712,7 +7652,7 @@ main {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [3]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
@@ -7752,7 +7692,7 @@ covering       : {'bbox': {'xmin': ['bbox', 'xmin'], 'ymin': ['bbox', 'ymin'], '
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [2]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">pq</span><span class="o">.</span><span class="n">read_schema</span><span class="p">(</span><span class="s2">"pnw_cities.parquet"</span><span class="p">)</span>
@@ -7766,10 +7706,10 @@ covering       : {'bbox': {'xmin': ['bbox', 'xmin'], 'ymin': ['bbox', 'ymin'], '
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[2]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>city: large_string
-state: large_string
+<pre>city: string
+state: string
 population: int64
 geometry: binary
   -- field metadata --
@@ -7781,7 +7721,7 @@ bbox: struct&lt;xmin: double, ymin: double, xmax: double, ymax: double&gt;
   child 2, xmax: double
   child 3, ymax: double
 -- schema metadata --
-pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 715
+pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 726
 geo: '{"primary_column": "geometry", "columns": {"geometry": {"encoding":' + 1491</pre>
 </div>
 </div>
@@ -7922,7 +7862,7 @@ geo: '{"primary_column": "geometry", "columns": {"geometry": {"encoding":' + 149
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="o">,</span><span class="w"> </span><span class="nn">pyarrow</span>
@@ -7943,8 +7883,8 @@ geo: '{"primary_column": "geometry", "columns": {"geometry": {"encoding":' + 149
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>geopandas   : 1.1.4
-pyarrow     : 25.0.0
+<pre>geopandas   : 1.1.3
+pyarrow     : 23.0.1
 schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '1.0.0', '1.1.0']
 </pre>
 </div>
@@ -8043,12 +7983,12 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 </div>
 </div>
 </div>
-</div></section></section><section><section><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=96304320">
+</div></section></section><section><section><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=96304320">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [6]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">duckdb</span>
@@ -8061,18 +8001,6 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <span class="n">RELEASE</span> <span class="o">=</span> <span class="s2">"2026-08-19.0"</span>  <span class="c1"># check https://docs.overturemaps.org for the current release</span>
 <span class="n">AOI</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">xmin</span><span class="o">=-</span><span class="mf">123.35</span><span class="p">,</span> <span class="n">xmax</span><span class="o">=-</span><span class="mf">123.20</span><span class="p">,</span> <span class="n">ymin</span><span class="o">=</span><span class="mf">44.53</span><span class="p">,</span> <span class="n">ymax</span><span class="o">=</span><span class="mf">44.60</span><span class="p">)</span>  <span class="c1"># Corvallis, OR</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>FloatProgress(value=0.0, layout=Layout(width='auto'), style=ProgressStyle(bar_color='black'))</pre>
 </div>
 </div>
 </div>
@@ -8093,7 +8021,7 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [7]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">places</span> <span class="o">=</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
@@ -8116,8 +8044,14 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>FloatProgress(value=0.0, layout=Layout(width='auto'), style=ProgressStyle(bar_color='black'))</pre>
+</div>
+</div>
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[7]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
 <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
 <div>
 <style scoped="">
@@ -8183,7 +8117,7 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <th>5</th>
 <td>23c2769c-3071-45f0-aa81-1822702cb8cb</td>
 <td>Porter Remodeling Inc</td>
-<td>NaN</td>
+<td>None</td>
 <td>[1, 1, 0, 0, 0, 157, 53, 46, 210, 250, 204, 94...</td>
 </tr>
 <tr>
@@ -8386,7 +8320,7 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
 <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[8]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>&lt;_duckdb.DuckDBPyConnection at 0x20379898ff0&gt;</pre>
+<pre>&lt;_duckdb.DuckDBPyConnection at 0x224d8d4c5b0&gt;</pre>
 </div>
 </div>
 </div>
@@ -8440,6 +8374,36 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 </div>
 </div>
 </div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=1646b22b-b673-4d18-b66b-0e8914400c39">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">geolibre</span><span class="w"> </span><span class="kn">import</span> <span class="n">Map</span>
+
+<span class="n">m</span> <span class="o">=</span> <span class="n">Map</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">([</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="s2">"add"</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>['_add_layer', '_add_notifiers', 'add_basemap', 'add_class', 'add_cog', 'add_geojson', 'add_tile_layer', 'add_traits']
+</pre>
+</div>
+</div>
+</div>
+</div>
 </div></div></section></section><section><section>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=7670373e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
@@ -8456,16 +8420,18 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [9]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">geolibre</span><span class="w"> </span><span class="kn">import</span> <span class="n">Map</span>
-
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
 <span class="n">m</span> <span class="o">=</span> <span class="n">Map</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">123.0</span><span class="p">,</span> <span class="mf">44.5</span><span class="p">),</span> <span class="n">zoom</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">basemap</span><span class="o">=</span><span class="s2">"dark"</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="s2">"500px"</span><span class="p">)</span>
-
+<span class="n">gdf</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">"pnw_cities.parquet"</span><span class="p">)</span>
+<span class="c1"># Convert to GeoJSON</span>
+<span class="n">geojson</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">__geo_interface__</span>
 <span class="c1"># local file written earlier in this notebook</span>
-<span class="n">m</span><span class="o">.</span><span class="n">add_geoparquet</span><span class="p">(</span>
-    <span class="s2">"pnw_cities.parquet"</span><span class="p">,</span>
+<span class="n">m</span><span class="o">.</span><span class="n">add_geojson</span><span class="p">(</span>
+    <span class="n">geojson</span><span class="p">,</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"PNW Cities"</span><span class="p">,</span>
     <span class="n">paint</span><span class="o">=</span><span class="p">{</span><span class="s2">"circle-color"</span><span class="p">:</span> <span class="s2">"#f2a900"</span><span class="p">,</span> <span class="s2">"circle-radius"</span><span class="p">:</span> <span class="mi">6</span><span class="p">},</span>
 <span class="p">)</span>
@@ -8481,9 +8447,9 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[9]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[13]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>&lt;geolibre.geolibre.Map object at 0x0000020379A53A10&gt;</pre>
+<pre>&lt;geolibre.geolibre.Map object at 0x00000224DBBF4550&gt;</pre>
 </div>
 </div>
 </div>
@@ -8504,7 +8470,7 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [16]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">m2</span> <span class="o">=</span> <span class="n">Map</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">123.26</span><span class="p">,</span> <span class="mf">44.56</span><span class="p">),</span> <span class="n">zoom</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">basemap</span><span class="o">=</span><span class="s2">"positron"</span><span class="p">)</span>
@@ -8524,9 +8490,9 @@ schema_version options geopandas can write: ['0.1.0', '0.4.0', '1.0.0-beta.1', '
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[16]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[14]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>&lt;geolibre.geolibre.Map object at 0x000002036C491D00&gt;</pre>
+<pre>&lt;geolibre.geolibre.Map object at 0x00000224DBBF40A0&gt;</pre>
 </div>
 </div>
 </div>
